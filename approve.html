@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approve Wallet Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-12 max-w-md">
+        <div class="bg-white p-8 rounded-lg shadow-md">
+            <h1 class="text-2xl font-bold text-center mb-6">Approve Wallet Access</h1>
+            
+            <div id="approvalContainer" class="space-y-6">
+                <div class="text-center">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Loading request details...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session');
+            const approvalContainer = document.getElementById('approvalContainer');
+
+            try {
+                // Get session details
+                const response = await axios.get(`http://localhost:3001/api/session/${sessionId}`);
+                const { walletAddress, permissions } = response.data;
+
+                // Display approval UI
+                approvalContainer.innerHTML = `
+                    <div>
+                        <p class="font-medium">You are being asked to approve access to:</p>
+                        <p class="text-blue-600 break-all mt-2">${walletAddress}</p>
+                    </div>
+                    <div>
+                        <p class="font-medium">Requested Permissions:</p>
+                        <ul class="list-disc pl-5 mt-2 space-y-1">
+                            ${permissions.map(p => `<li>${p}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button id="approveBtn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md">
+                            Approve
+                        </button>
+                        <button id="rejectBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md">
+                            Reject
+                        </button>
+                    </div>
+                `;
+
+                // Handle approval
+                document.getElementById('approveBtn').addEventListener('click', async () => {
+                    await submitApproval(sessionId, true);
+                });
+
+                // Handle rejection
+                document.getElementById('rejectBtn').addEventListener('click', async () => {
+                    await submitApproval(sessionId, false);
+                });
+
+            } catch (error) {
+                approvalContainer.innerHTML = `
+                    <div class="p-4 bg-red-100 text-red-800 rounded-md">
+                        Error loading permission request: ${error.message}
+                    </div>
+                `;
+            }
+        });
+
+        async function submitApproval(sessionId, approved) {
+            const approvalContainer = document.getElementById('approvalContainer');
+            try {
+                approvalContainer.innerHTML = `
+                    <div class="text-center">
+                        <div class="loading-spinner mx-auto"></div>
+                        <p class="mt-4 text-gray-600">Processing your response...</p>
+                    </div>
+                `;
+
+                await axios.post('http://localhost:3001/api/approve', {
+                    sessionId,
+                    approved
+                });
+
+                approvalContainer.innerHTML = `
+                    <div class="p-4 ${approved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} rounded-md text-center">
+                        <p class="font-medium">You have ${approved ? 'approved' : 'rejected'} the request.</p>
+                        <p class="mt-2">This window can now be closed.</p>
+                    </div>
+                `;
+            } catch (error) {
+                approvalContainer.innerHTML = `
+                    <div class="p-4 bg-red-100 text-red-800 rounded-md">
+                        Error submitting response: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
